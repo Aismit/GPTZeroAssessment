@@ -1,13 +1,17 @@
-import axios from "axios";
 import { backendUrl } from "./constants";
 
-export const getPromptResponse = async (prompt) => {
-  try {
-    const response = await axios.post(backendUrl, {
-      prompt,
-    });
-    return response.data;
-  } catch (error) {
-    console.error(error);
-  }
+export const getPromptResponse = (prompt, onMessage) => {
+  const eventSource = new EventSource(`${backendUrl}/api/chat?prompt=${prompt}`);
+
+  eventSource.onmessage = function (event) {
+    onMessage(event.data);
+  };
+
+  eventSource.onerror = function () {
+    eventSource.close();
+  };
+
+  return () => {
+    eventSource.close();
+  };
 };

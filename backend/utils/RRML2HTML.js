@@ -10,6 +10,11 @@ const rrmlElementToStyles = {
 };
 
 const RRML2HTML = (rrml) => {
+  if (typeof rrml !== 'string') {
+    console.error('Expected a string input to RRML2HTML, but got:', typeof rrml);
+    return '';
+  }
+
   let htmlString = rrml;
   for (const [rrmlTag, htmlTag] of Object.entries(rrmlElementToHtmlElement)) {
     const style = rrmlElementToStyles[rrmlTag];

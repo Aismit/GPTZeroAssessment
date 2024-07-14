@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import Navbar from "../components/Navbar";
 import { getPromptResponse } from "../../api/getPromptResponse";
 import { ChatResponse, ChatPrompt, TextArea } from "../components/chat";
 
@@ -29,23 +30,24 @@ export default function Home() {
     ]);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!prompt) {
       setError("Please enter a prompt.");
       return;
     }
     setError(null);
-    try {
-      setIsLoadingResponse(true);
-      addMessage(prompt, agentTypes.user);
-      const response = await getPromptResponse(prompt);
+    setIsLoadingResponse(true);
+    addMessage(prompt, agentTypes.user);
+
+    const closeConnection = getPromptResponse(prompt, (response) => {
       addMessage(response, agentTypes.richieRich);
+      setIsLoadingResponse(false);
       setPrompt("");
-      setIsLoadingResponse(false);
-    } catch (error) {
-      setError("An error occurred. Please try again.");
-      setIsLoadingResponse(false);
-    }
+    });
+
+    return () => {
+      closeConnection();
+    };
   };
 
   useEffect(() => {
@@ -54,28 +56,31 @@ export default function Home() {
   }, [messages]);
 
   return (
-    <main className="flex flex-col items-center w-full bg-gray-100 h-[93vh]">
-      <div
-        ref={scrollContainerRef}
-        className="flex flex-col overflow-y-scroll p-20 w-full mb-40"
-      >
-        {messages.map((message, index) =>
-          message.agent === agentTypes.user ? (
-            <ChatPrompt key={index} prompt={message.contents} />
-          ) : (
-            <ChatResponse key={index} response={message.contents} />
-          ),
+    <>
+      <Navbar />
+      <main className="flex flex-col items-center w-full bg-gray-100 h-[93vh]">
+        <div
+          ref={scrollContainerRef}
+          className="flex flex-col overflow-y-scroll p-20 w-full mb-40"
+        >
+          {messages.map((message, index) =>
+            message.agent === agentTypes.user ? (
+              <ChatPrompt key={index} prompt={message.contents} />
+            ) : (
+              <ChatResponse key={index} response={message.contents} />
+            )
+          )}
+        </div>
+        <TextArea
+          onChange={handleTextAreaChange}
+          onSubmit={handleSubmit}
+          isLoading={isLoadingResponse}
+          hasError={error !== null}
+        />
+        {error && (
+          <div className="absolute bottom-0 mb-2 text-red-500">{error}</div>
         )}
-      </div>
-      <TextArea
-        onChange={handleTextAreaChange}
-        onSubmit={handleSubmit}
-        isLoading={isLoadingResponse}
-        hasError={error !== null}
-      />
-      {error && (
-        <div className="absolute bottom-0 mb-2 text-red-500">{error}</div>
-      )}
-    </main>
+      </main>
+    </>
   );
 }
