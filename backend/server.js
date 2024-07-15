@@ -20,18 +20,14 @@ function connectToRichieRichWebSocket(prompt, onData, onError, onEnd) {
   ws.on('message', function message(data) {
     const newWord = data.toString();
     const htmlData = RRML2HTML(newWord); // Process only new data
-    console.log('New data:', newWord);
-    console.log('HTML data:', htmlData);
     onData(htmlData);
   });
 
   ws.on('close', function close() {
-    console.log('WebSocket connection closed.');
     onEnd();
   });
 
   ws.on('error', function error(err) {
-    console.error('WebSocket error:', err);
     onError(err);
   });
 

@@ -33,28 +33,27 @@ export default function Home() {
     setCurrentMessage('');
 
     const cleanup = getPromptResponse(prompt, (response) => {
-      setCurrentMessage(prev => prev + response);
+      setCurrentMessage(prev => prev + ' ' + response.trim());
     }, () => {
-      // This is the callback for the end event
+      // End event callback
       setIsLoadingResponse(false);
     });
 
     // Clean up function
     return () => {
       cleanup();
-      setIsLoadingResponse(false);
     };
   };
 
   useEffect(() => {
-    if (currentMessage && !isLoadingResponse) {
+    if (!isLoadingResponse && currentMessage) {
       setMessages(prev => [
         ...prev,
         { agent: agentTypes.richieRich, contents: currentMessage.trim() }
       ]);
       setCurrentMessage('');
     }
-  }, [isLoadingResponse, currentMessage]);
+  }, [isLoadingResponse]);
 
   useEffect(() => {
     scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
