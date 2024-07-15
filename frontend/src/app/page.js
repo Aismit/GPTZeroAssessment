@@ -39,14 +39,40 @@ export default function Home() {
     setIsLoadingResponse(true);
     addMessage(prompt, agentTypes.user);
 
-    const closeConnection = getPromptResponse(prompt, (response) => {
-      addMessage(response, agentTypes.richieRich);
-      setIsLoadingResponse(false);
-      setPrompt("");
+    const eventSource = getPromptResponse(prompt, (response) => {
+      setMessages((prev) => {
+        const newMessages = [...prev];
+        if (newMessages[newMessages.length - 1]?.agent === agentTypes.richieRich) {
+          newMessages[newMessages.length - 1].contents += response;
+        } else {
+          newMessages.push({
+            agent: agentTypes.richieRich,
+            contents: response,
+          });
+        }
+        return newMessages;
+      });
     });
 
+    eventSource.onopen = () => {
+      console.log("Connection to server opened.");
+    };
+
+    eventSource.onerror = (error) => {
+      console.error("EventSource failed:", error);
+      eventSource.close();
+      setIsLoadingResponse(false);
+      setPrompt("");
+    };
+
+    eventSource.onclose = () => {
+      setIsLoadingResponse(false);
+      setPrompt("");
+    };
+
+    // Clean up eventSource on unmount
     return () => {
-      closeConnection();
+      eventSource.close();
     };
   };
 

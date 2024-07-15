@@ -16,16 +16,27 @@ const RRML2HTML = (rrml) => {
   }
 
   let htmlString = rrml;
+
+  // Handle regular RRML tags
   for (const [rrmlTag, htmlTag] of Object.entries(rrmlElementToHtmlElement)) {
     const style = rrmlElementToStyles[rrmlTag];
-    const openTagRegex = new RegExp(`<${rrmlTag}>`, "g");
-    const closeTagRegex = new RegExp(`</${rrmlTag}>`, "g");
-    const openHtmlString = style ? `<${htmlTag} ${style}>` : `<${htmlTag}>`;
-    htmlString = htmlString.replace(openTagRegex, openHtmlString);
-    htmlString = htmlString.replace(closeTagRegex, `</${htmlTag}>`);
+    const tagRegex = new RegExp(`<${rrmlTag}>([\\s\\S]*?)</${rrmlTag}>`, "g");
+    const replacement = style ? `<${htmlTag} ${style}>$1</${htmlTag}>` : `<${htmlTag}>$1</${htmlTag}>`;
+    htmlString = htmlString.replace(tagRegex, replacement);
   }
-  const linkRegex = /<link href="(.*?)">(.*?)<\/link>/g;
-  htmlString = htmlString.replace(linkRegex, '<a href="$1">$2</a>');
+
+  // Handle link tags
+  const linkRegex = /<link\s+href="([^"]+)">([\s\S]*?)<\/link>/g;
+  htmlString = htmlString.replace(linkRegex, (match, href, content) => {
+    return `<a href="${href}">${content.trim()}</a>`;
+  });
+
+  // Handle any remaining unclosed tags
+  for (const [rrmlTag, htmlTag] of Object.entries(rrmlElementToHtmlElement)) {
+    const unclosedTagRegex = new RegExp(`<${rrmlTag}>([\\s\\S]*?)(?=<${rrmlTag}>|$)`, "g");
+    const replacement = style ? `<${htmlTag} ${style}>$1</${htmlTag}>` : `<${htmlTag}>$1</${htmlTag}>`;
+    htmlString = htmlString.replace(unclosedTagRegex, replacement);
+  }
 
   return htmlString;
 };

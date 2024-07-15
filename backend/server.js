@@ -1,52 +1,112 @@
-const express = require("express");
-const cors = require("cors");
-const WebSocket = require("ws");
+"use client";
+import React, { useState, useEffect, useRef } from "react";
+import Navbar from "../components/Navbar";
+import { getPromptResponse } from "../../api/getPromptResponse";
+import { ChatResponse, ChatPrompt, TextArea } from "../components/chat";
 
-const RRML2HTML = require("./utils/RRML2HTML");
+const agentTypes = {
+  user: "User",
+  richieRich: "RichieRich",
+};
 
-const PORT = 8081;
-const app = express();
+export default function Home() {
+  const [isLoadingResponse, setIsLoadingResponse] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [prompt, setPrompt] = useState("");
+  const [error, setError] = useState(null);
+  const scrollContainerRef = useRef(null);
 
-app.use(cors());
-app.use(express.json());
+  const handleTextAreaChange = (event) => {
+    setPrompt(event.target.value);
+  };
 
-function connectToRichieRichWebSocket(prompt, onData) {
-  const ws = new WebSocket('ws://localhost:8082/v1/stream');
+  const addMessage = (message, agent) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        agent,
+        contents: message,
+      },
+    ]);
+  };
 
-  let accumulatedData = '';
+  const handleSubmit = () => {
+    if (!prompt) {
+      setError("Please enter a prompt.");
+      return;
+    }
+    setError(null);
+    setIsLoadingResponse(true);
+    addMessage(prompt, agentTypes.user);
 
-  ws.on('open', function open() {
-    ws.send(prompt);
-  });
+    const eventSource = getPromptResponse(prompt, (response) => {
+      setMessages((prev) => {
+        const newMessages = [...prev];
+        if (newMessages[newMessages.length - 1]?.agent === agentTypes.richieRich) {
+          newMessages[newMessages.length - 1].contents += response;
+        } else {
+          newMessages.push({
+            agent: agentTypes.richieRich,
+            contents: response,
+          });
+        }
+        return newMessages;
+      });
+    });
 
-  ws.on('message', function message(data) {
-    accumulatedData += data.toString(); // Accumulate data
-    console.log('Accumulated data so far:', accumulatedData);
-  });
+    eventSource.onopen = () => {
+      console.log("Connection to server opened.");
+    };
 
-  ws.on('close', function close() {
-    const htmlData = RRML2HTML(accumulatedData); // Process accumulated data
-    onData(htmlData);
-    console.log('Final accumulated data:', accumulatedData);
-  });
+    eventSource.onerror = (error) => {
+      console.error("EventSource failed:", error);
+      eventSource.close();
+      setIsLoadingResponse(false);
+      setPrompt("");
+    };
 
-  ws.on('error', function error(err) {
-    console.error('WebSocket error:', err);
-  });
+    eventSource.onclose = () => {
+      setIsLoadingResponse(false);
+      setPrompt("");
+    };
+
+    // Clean up eventSource on unmount
+    return () => {
+      eventSource.close();
+    };
+  };
+
+  useEffect(() => {
+    scrollContainerRef.current.scrollTop =
+      scrollContainerRef.current.scrollHeight;
+  }, [messages]);
+
+  return (
+    <>
+      <Navbar />
+      <main className="flex flex-col items-center w-full bg-gray-100 h-[93vh]">
+        <div
+          ref={scrollContainerRef}
+          className="flex flex-col overflow-y-scroll p-20 w-full mb-40"
+        >
+          {messages.map((message, index) =>
+            message.agent === agentTypes.user ? (
+              <ChatPrompt key={index} prompt={message.contents} />
+            ) : (
+              <ChatResponse key={index} response={message.contents} />
+            )
+          )}
+        </div>
+        <TextArea
+          onChange={handleTextAreaChange}
+          onSubmit={handleSubmit}
+          isLoading={isLoadingResponse}
+          hasError={error !== null}
+        />
+        {error && (
+          <div className="absolute bottom-0 mb-2 text-red-500">{error}</div>
+        )}
+      </main>
+    </>
+  );
 }
-
-app.get("/api/chat", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
-  const prompt = req.query.prompt;
-
-  connectToRichieRichWebSocket(prompt, (data) => {
-    res.write(`data: ${data}\n\n`);
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
-});
