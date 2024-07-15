@@ -13,21 +13,20 @@ app.use(express.json());
 function connectToRichieRichWebSocket(prompt, onData, onError, onEnd) {
   const ws = new WebSocket('ws://localhost:8082/v1/stream');
 
-  let accumulatedData = '';
-
   ws.on('open', function open() {
     ws.send(prompt);
   });
 
   ws.on('message', function message(data) {
     const newWord = data.toString();
-    accumulatedData += newWord; // Accumulate data
     const htmlData = RRML2HTML(newWord); // Process only new data
+    console.log('New data:', newWord);
+    console.log('HTML data:', htmlData);
     onData(htmlData);
   });
 
   ws.on('close', function close() {
-    console.log('Final accumulated data:', accumulatedData);
+    console.log('WebSocket connection closed.');
     onEnd();
   });
 

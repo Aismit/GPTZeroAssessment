@@ -34,6 +34,9 @@ export default function Home() {
 
     const cleanup = getPromptResponse(prompt, (response) => {
       setCurrentMessage(prev => prev + response);
+    }, () => {
+      // This is the callback for the end event
+      setIsLoadingResponse(false);
     });
 
     // Clean up function
