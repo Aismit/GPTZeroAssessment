@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import Navbar from "../components/Navbar";
 import { getPromptResponse } from "../../api/getPromptResponse";
@@ -12,22 +13,13 @@ const agentTypes = {
 export default function Home() {
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [currentMessage, setCurrentMessage] = useState('');
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState(null);
   const scrollContainerRef = useRef(null);
 
   const handleTextAreaChange = (event) => {
     setPrompt(event.target.value);
-  };
-
-  const addMessage = (message, agent) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        agent,
-        contents: message,
-      },
-    ]);
   };
 
   const handleSubmit = () => {
@@ -37,49 +29,33 @@ export default function Home() {
     }
     setError(null);
     setIsLoadingResponse(true);
-    addMessage(prompt, agentTypes.user);
+    setMessages(prev => [...prev, { agent: agentTypes.user, contents: prompt }]);
+    setCurrentMessage('');
 
-    const eventSource = getPromptResponse(prompt, (response) => {
-      setMessages((prev) => {
-        const newMessages = [...prev];
-        if (newMessages[newMessages.length - 1]?.agent === agentTypes.richieRich) {
-          newMessages[newMessages.length - 1].contents += response;
-        } else {
-          newMessages.push({
-            agent: agentTypes.richieRich,
-            contents: response,
-          });
-        }
-        return newMessages;
-      });
+    const cleanup = getPromptResponse(prompt, (response) => {
+      setCurrentMessage(prev => prev + response);
     });
 
-    eventSource.onopen = () => {
-      console.log("Connection to server opened.");
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("EventSource failed:", error);
-      eventSource.close();
-      setIsLoadingResponse(false);
-      setPrompt("");
-    };
-
-    eventSource.onclose = () => {
-      setIsLoadingResponse(false);
-      setPrompt("");
-    };
-
-    // Clean up eventSource on unmount
+    // Clean up function
     return () => {
-      eventSource.close();
+      cleanup();
+      setIsLoadingResponse(false);
     };
   };
 
   useEffect(() => {
-    scrollContainerRef.current.scrollTop =
-      scrollContainerRef.current.scrollHeight;
-  }, [messages]);
+    if (currentMessage && !isLoadingResponse) {
+      setMessages(prev => [
+        ...prev,
+        { agent: agentTypes.richieRich, contents: currentMessage.trim() }
+      ]);
+      setCurrentMessage('');
+    }
+  }, [isLoadingResponse, currentMessage]);
+
+  useEffect(() => {
+    scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+  }, [messages, currentMessage]);
 
   return (
     <>
@@ -95,6 +71,9 @@ export default function Home() {
             ) : (
               <ChatResponse key={index} response={message.contents} />
             )
+          )}
+          {currentMessage && (
+            <ChatResponse response={currentMessage} />
           )}
         </div>
         <TextArea
